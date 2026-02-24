@@ -20,7 +20,6 @@ export function HistoryList() {
   const [showManualDialog, setShowManualDialog] = useState(false);
   const [manualContraction, setManualContraction] = useState({
     startedAt: '',
-    endedAt: '',
     durationSec: '',
     intervalSec: '',
   });
@@ -39,23 +38,21 @@ export function HistoryList() {
         endedAt: Timestamp.fromDate(new Date(manualContraction.endedAt)),
         durationSec: Number(manualContraction.durationSec),
         intervalSec: manualContraction.intervalSec ? Number(manualContraction.intervalSec) : null,
-      });
-      setManualContraction({ startedAt: '', endedAt: '', durationSec: '', intervalSec: '' });
-      handleCloseManualDialog();
-    } catch (e) {
-      alert('Error al cargar la contracción');
-    }
-  };
-
-  return (
-    <div className="p-4 flex flex-col h-full">
-      <header className="text-center mb-4">
-        <h1 className="text-2xl font-bold">Historial</h1>
-      </header>
-
-      <div className="mb-4">
-        <SummaryStats />
-      </div>
+      try {
+        await useContractions().addContraction({
+          startedAt: Timestamp.fromDate(new Date(manualContraction.startedAt)),
+          durationSec: Number(manualContraction.durationSec),
+          intervalSec: Number(manualContraction.intervalSec),
+        });
+        setManualContraction({
+          startedAt: '',
+          durationSec: '',
+          intervalSec: '',
+        });
+        setShowManualDialog(false);
+      } catch (error) {
+        // Manejo de error
+      }
 
       <div className="flex justify-between items-center mb-4 gap-2">
         <Dialog open={showManualDialog} onOpenChange={setShowManualDialog}>
@@ -78,15 +75,7 @@ export function HistoryList() {
                 value={manualContraction.startedAt}
                 onChange={handleManualChange}
                 className="w-full border rounded p-2"
-                placeholder="Inicio"
-              />
-              <input
-                type="datetime-local"
-                name="endedAt"
-                value={manualContraction.endedAt}
-                onChange={handleManualChange}
-                className="w-full border rounded p-2"
-                placeholder="Fin"
+                placeholder="Fecha y hora de inicio"
               />
               <input
                 type="number"
