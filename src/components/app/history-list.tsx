@@ -41,24 +41,18 @@ export function HistoryList() {
     try {
       await useContractions().addContraction({
         startedAt: Timestamp.fromDate(new Date(manualContraction.startedAt)),
-        endedAt: Timestamp.fromDate(new Date(manualContraction.endedAt)),
         durationSec: Number(manualContraction.durationSec),
-        intervalSec: manualContraction.intervalSec ? Number(manualContraction.intervalSec) : null,
-      try {
-        await useContractions().addContraction({
-          startedAt: Timestamp.fromDate(new Date(manualContraction.startedAt)),
-          durationSec: Number(manualContraction.durationSec),
-          intervalSec: Number(manualContraction.intervalSec),
-        });
-        setManualContraction({
-          startedAt: '',
-          durationSec: '',
-          intervalSec: '',
-        });
-        setShowManualDialog(false);
-      } catch (error) {
-        // Manejo de error
-      }
+        intervalSec: Number(manualContraction.intervalSec),
+      });
+      setManualContraction({
+        startedAt: '',
+        durationSec: '',
+        intervalSec: '',
+      });
+      setShowManualDialog(false);
+    } catch (error) {
+      // Manejo de error
+    }
 
       <div className="flex justify-between items-center mb-4 gap-2">
         <Dialog open={showManualDialog} onOpenChange={setShowManualDialog}>
