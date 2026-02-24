@@ -17,30 +17,33 @@ import { Terminal } from "lucide-react";
 
 export function HistoryList() {
   const { contractions, clearHistory, loading } = useContractions();
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-
+  const [showManualDialog, setShowManualDialog] = useState(false);
+  const [manualContraction, setManualContraction] = useState({
+    startedAt: '',
+    endedAt: '',
+    durationSec: '',
+    intervalSec: '',
+  });
   const handleClearHistory = () => {
     clearHistory();
   };
-
-  const handleAnalyzePatterns = async () => {
-    setIsAnalyzing(true);
-    setAiSummary(null);
-    const plainContractions = contractions.map(c => ({
-      startedAt: c.startedAt.toMillis(),
-      endedAt: c.endedAt.toMillis(),
-      durationSec: c.durationSec,
-      intervalSec: c.intervalSec,
-    }));
+  const handleOpenManualDialog = () => setShowManualDialog(true);
+  const handleCloseManualDialog = () => setShowManualDialog(false);
+  const handleManualChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setManualContraction({ ...manualContraction, [e.target.name]: e.target.value });
+  };
+  const handleManualSubmit = async () => {
     try {
-      const result = await analyzeContractionPatterns({ contractions: plainContractions });
-      setAiSummary(result.summary);
-    } catch (error) {
-      console.error("AI analysis failed", error);
-      setAiSummary("Hubo un error al analizar los patrones. Por favor, inténtalo de nuevo.");
-    } finally {
-      setIsAnalyzing(false);
+      await useContractions().addContraction({
+        startedAt: Timestamp.fromDate(new Date(manualContraction.startedAt)),
+        endedAt: Timestamp.fromDate(new Date(manualContraction.endedAt)),
+        durationSec: Number(manualContraction.durationSec),
+        intervalSec: manualContraction.intervalSec ? Number(manualContraction.intervalSec) : null,
+      });
+      setManualContraction({ startedAt: '', endedAt: '', durationSec: '', intervalSec: '' });
+      handleCloseManualDialog();
+    } catch (e) {
+      alert('Error al cargar la contracción');
     }
   };
 
@@ -55,22 +58,55 @@ export function HistoryList() {
       </div>
 
       <div className="flex justify-between items-center mb-4 gap-2">
-        <Dialog>
+        <Dialog open={showManualDialog} onOpenChange={setShowManualDialog}>
           <DialogTrigger asChild>
-            <Button variant="outline" onClick={handleAnalyzePatterns} disabled={isAnalyzing || contractions.length < 2}>
-              {isAnalyzing ? "Analizando..." : "Analizar con IA"}
+            <Button variant="outline" onClick={handleOpenManualDialog}>
+              Cargar contracción
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Análisis de Patrones</DialogTitle>
+              <DialogTitle>Cargar contracción manual</DialogTitle>
               <DialogDescription>
-                Este es un resumen de tus contracciones generado por IA. Recuerda que no reemplaza el consejo médico.
+                Ingresa los datos de la contracción que quieras agregar.
               </DialogDescription>
             </DialogHeader>
-            <div className="mt-4">
-              {isAnalyzing && <Skeleton className="h-24 w-full" />}
-              {aiSummary && <p className="text-sm whitespace-pre-wrap">{aiSummary}</p>}
+            <div className="mt-4 space-y-2">
+              <input
+                type="datetime-local"
+                name="startedAt"
+                value={manualContraction.startedAt}
+                onChange={handleManualChange}
+                className="w-full border rounded p-2"
+                placeholder="Inicio"
+              />
+              <input
+                type="datetime-local"
+                name="endedAt"
+                value={manualContraction.endedAt}
+                onChange={handleManualChange}
+                className="w-full border rounded p-2"
+                placeholder="Fin"
+              />
+              <input
+                type="number"
+                name="durationSec"
+                value={manualContraction.durationSec}
+                onChange={handleManualChange}
+                className="w-full border rounded p-2"
+                placeholder="Duración (segundos)"
+              />
+              <input
+                type="number"
+                name="intervalSec"
+                value={manualContraction.intervalSec}
+                onChange={handleManualChange}
+                className="w-full border rounded p-2"
+                placeholder="Intervalo (segundos, opcional)"
+              />
+              <Button variant="default" onClick={handleManualSubmit}>
+                Guardar
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
