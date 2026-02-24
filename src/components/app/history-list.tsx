@@ -53,30 +53,55 @@ export function HistoryList() {
     } catch (error) {
       // Manejo de error
     }
-
-      <div className="flex justify-between items-center mb-4 gap-2">
-        <Dialog open={showManualDialog} onOpenChange={setShowManualDialog}>
-          <DialogTrigger asChild>
-            <Button variant="outline" onClick={handleOpenManualDialog}>
-              Cargar contracción
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Cargar contracción manual</DialogTitle>
-              <DialogDescription>
-                Ingresa los datos de la contracción que quieras agregar.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="mt-4 space-y-2">
-              <input
-                type="datetime-local"
-                name="startedAt"
-                value={manualContraction.startedAt}
-                onChange={handleManualChange}
-                className="w-full border rounded p-2"
-                placeholder="Fecha y hora de inicio"
-              />
+                return (
+                  <div className="flex justify-between items-center mb-4 gap-2">
+                    <Dialog open={showManualDialog} onOpenChange={setShowManualDialog}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" onClick={handleOpenManualDialog}>
+                          Cargar contracción
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Cargar contracción manual</DialogTitle>
+                          <DialogDescription>
+                            Ingresa los datos de la contracción que quieras agregar.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="mt-4 space-y-2">
+                          <input
+                            type="datetime-local"
+                            name="startedAt"
+                            value={manualContraction.startedAt}
+                            onChange={handleManualChange}
+                            className="w-full border rounded p-2"
+                            placeholder="Fecha y hora de inicio"
+                          />
+                          <input
+                            type="number"
+                            name="durationSec"
+                            value={manualContraction.durationSec}
+                            onChange={handleManualChange}
+                            className="w-full border rounded p-2"
+                            placeholder="Duración (segundos)"
+                          />
+                          <input
+                            type="number"
+                            name="intervalSec"
+                            value={manualContraction.intervalSec}
+                            onChange={handleManualChange}
+                            className="w-full border rounded p-2"
+                            placeholder="Intervalo (segundos, opcional)"
+                          />
+                          <Button variant="default" onClick={handleManualSubmit}>
+                            Guardar
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    {/* ...resto del contenido del historial... */}
+                  </div>
+                );
               <input
                 type="number"
                 name="durationSec"
