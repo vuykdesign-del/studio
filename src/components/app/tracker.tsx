@@ -85,14 +85,17 @@ export function Tracker() {
             onClick={handleToggleTracking}
             className={cn(
                 "rounded-full h-48 w-48 text-3xl font-bold border-4 transition-all duration-300 ease-in-out transform active:scale-95",
-                isTracking ? "bg-red-500/20 border-red-500 text-red-400 hover:bg-red-500/30 animate-glow shadow-red-500/50" : "bg-primary/20 border-primary text-primary-foreground hover:bg-primary/30"
+                isTracking
+                ? "bg-destructive/20 border-destructive text-destructive hover:bg-destructive/30 animate-destructive-glow shadow-destructive/50"
+                : "bg-primary/20 border-primary text-primary hover:bg-primary/30"
             )}
-            style={{'--primary': '255 0 0'} as React.CSSProperties}
         >
           {isTracking ? "PARAR" : "EMPEZAR"}
         </Button>
-        <p className="text-muted-foreground text-center">
-            Pulsa el botón cuando empiece una contracción
+        <p className="text-muted-foreground text-center h-10">
+          {isTracking
+            ? "Pulsa el botón cuando termine la contracción."
+            : "Pulsa el botón cuando empiece una contracción."}
         </p>
       </div>
       

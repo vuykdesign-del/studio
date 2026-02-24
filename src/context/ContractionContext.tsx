@@ -94,7 +94,12 @@ export function ContractionProvider({ children }: { children: ReactNode }) {
       setContractions(prev => [newContraction, ...prev]);
       try {
         const localData = localStorage.getItem(LOCAL_STORAGE_KEY) || '[]';
-        const updatedLocalData = [contraction, ...JSON.parse(localData)];
+        const serializableNewContraction = {
+            ...newContraction,
+            startedAt: newContraction.startedAt.toDate().toISOString(),
+            endedAt: newContraction.endedAt.toDate().toISOString()
+        }
+        const updatedLocalData = [serializableNewContraction, ...JSON.parse(localData)];
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedLocalData));
       } catch (e) {
         console.error("Failed to write to localStorage after Firestore failure", e);
