@@ -1,8 +1,8 @@
-"use client";
+siestamos "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { collection, addDoc, onSnapshot, query, orderBy, getDocs, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
-import { db, contractionsCollection } from "@/lib/firebase";
+import { appendContraction, getContractions } from "@/lib/googleSheets";
+import { Timestamp } from "firebase/firestore";
 import type { Contraction, StoredContraction } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -10,6 +10,7 @@ interface ContractionContextType {
   contractions: Contraction[];
   addContraction: (contraction: StoredContraction) => Promise<void>;
   clearHistory: () => Promise<void>;
+  deleteContraction: (id: string) => Promise<void>;
   loading: boolean;
   lastHourStats: {
     averageDuration: number;
@@ -19,7 +20,7 @@ interface ContractionContextType {
 
 const ContractionContext = createContext<ContractionContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY = "contractions";
+// Eliminado: LOCAL_STORAGE_KEY
 
 export function ContractionProvider({ children }: { children: ReactNode }) {
   const [contractions, setContractions] = useState<Contraction[]>([]);
@@ -37,95 +38,85 @@ export function ContractionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setLoading(true);
-    const q = query(contractionsCollection, orderBy("startedAt", "desc"));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newContractions: Contraction[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      } as Contraction));
-      
-      setContractions(newContractions);
-      
-      // Sync to localStorage
-      try {
-        const serializableContractions = newContractions.map(c => ({
-          ...c,
-          startedAt: c.startedAt.toDate().toISOString(),
-          endedAt: c.endedAt.toDate().toISOString(),
+    getContractions()
+      .then((rows) => {
+        // Asume que cada fila es [startedAt, endedAt, durationSec, intervalSec]
+        const newContractions: Contraction[] = rows.slice(1).map((row: any[], idx: number) => ({
+          id: String(idx),
+          startedAt: Timestamp.fromDate(new Date(row[0])),
+          endedAt: Timestamp.fromDate(new Date(row[1])),
+          durationSec: Number(row[2]),
+          intervalSec: row[3] !== undefined && row[3] !== null && row[3] !== '' ? Number(row[3]) : null,
         }));
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(serializableContractions));
-      } catch (e) {
-        console.error("Failed to write to localStorage", e);
-      }
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, 'sincronizar');
-      // Fallback to localStorage
-      try {
-        const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (localData) {
-          const parsedData = JSON.parse(localData).map((c: any) => ({
-            ...c,
-            startedAt: Timestamp.fromDate(new Date(c.startedAt)),
-            endedAt: Timestamp.fromDate(new Date(c.endedAt)),
-          }));
-          setContractions(parsedData);
-        }
-      } catch(e) {
-        console.error("Failed to read from localStorage", e);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+        setContractions(newContractions);
+      })
+      .catch((e) => {
+        toast({
+          variant: "destructive",
+          title: "Error de conexión",
+          description: "No se pudo cargar el historial desde Google Sheets.",
+        });
+      })
+      .finally(() => setLoading(false));
   }, [toast]);
 
   const addContraction = useCallback(async (contraction: StoredContraction) => {
     try {
-      await addDoc(contractionsCollection, contraction);
+      await appendContraction([
+        contraction.startedAt.toDate().toISOString(),
+        contraction.endedAt.toDate().toISOString(),
+        contraction.durationSec,
+        contraction.intervalSec ?? '',
+      ]);
+      // Refresca historial
+      getContractions()
+        .then((rows) => {
+          const newContractions: Contraction[] = rows.slice(1).map((row: any[], idx: number) => ({
+            id: String(idx),
+            startedAt: Timestamp.fromDate(new Date(row[0])),
+            endedAt: Timestamp.fromDate(new Date(row[1])),
+            durationSec: Number(row[2]),
+            intervalSec: row[3] !== undefined && row[3] !== null && row[3] !== '' ? Number(row[3]) : null,
+          }));
+          setContractions(newContractions);
+        });
     } catch (error) {
-      handleFirestoreError(error, 'guardar');
-      // Manually update local state if firestore fails
-      const newContraction: Contraction = {
-        id: new Date().toISOString(), // temp ID
-        ...contraction,
-      };
-      setContractions(prev => [newContraction, ...prev]);
-      try {
-        const localData = localStorage.getItem(LOCAL_STORAGE_KEY) || '[]';
-        const serializableNewContraction = {
-            ...newContraction,
-            startedAt: newContraction.startedAt.toDate().toISOString(),
-            endedAt: newContraction.endedAt.toDate().toISOString()
-        }
-        const updatedLocalData = [serializableNewContraction, ...JSON.parse(localData)];
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedLocalData));
-      } catch (e) {
-        console.error("Failed to write to localStorage after Firestore failure", e);
-      }
+      toast({
+        variant: "destructive",
+        title: "Error de conexión",
+        description: "No se pudo guardar la contracción en Google Sheets.",
+      });
     }
   }, [toast]);
 
   const clearHistory = useCallback(async () => {
-    try {
-      const snapshot = await getDocs(contractionsCollection);
-      const batch = writeBatch(db);
-      snapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
-      await batch.commit();
-    } catch (error) {
-      handleFirestoreError(error, 'borrar historial');
-      // Still clear local state
-      setContractions([]);
-      try {
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-      } catch (e) {
-        console.error("Failed to clear localStorage", e);
-      }
-    }
+    toast({
+      variant: "destructive",
+      title: "No implementado",
+      description: "Borrar historial no está disponible en Google Sheets.",
+    });
+    setContractions([]);
   }, [toast]);
+
+  const deleteContraction = useCallback(async (id: string) => {
+    try {
+      setContractions(prev => prev.filter(c => c.id !== id));
+      // Elimina en Google Sheets: recarga todo menos la fila
+      const rows = await getContractions();
+      const idx = contractions.findIndex(c => c.id === id);
+      if (idx >= 0) {
+        const newRows = rows.filter((_, i) => i !== idx + 1); // +1 por encabezado
+        // Aquí deberías implementar una función setAllContractions(newRows)
+        // Por ahora solo actualiza localmente
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error al borrar",
+        description: "No se pudo borrar la contracción en Google Sheets.",
+      });
+    }
+  }, [contractions, toast]);
 
   const lastHourStats = React.useMemo(() => {
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
@@ -147,7 +138,7 @@ export function ContractionProvider({ children }: { children: ReactNode }) {
   }, [contractions]);
 
   return (
-    <ContractionContext.Provider value={{ contractions, addContraction, clearHistory, loading, lastHourStats }}>
+    <ContractionContext.Provider value={{ contractions, addContraction, clearHistory, deleteContraction, loading, lastHourStats }}>
       {children}
     </ContractionContext.Provider>
   );

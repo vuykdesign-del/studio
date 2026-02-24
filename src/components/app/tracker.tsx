@@ -33,7 +33,9 @@ export function Tracker() {
 
   useEffect(() => {
     if (isTracking) {
-      startTimeRef.current = Date.now();
+      // Guardar la fecha del día actual
+      const now = new Date();
+      startTimeRef.current = now.getTime();
       setElapsedTime(0);
       timerIntervalRef.current = setInterval(() => {
         if (startTimeRef.current) {
@@ -46,17 +48,17 @@ export function Tracker() {
         const endedAt = new Date();
         const startedAt = new Date(startTimeRef.current);
         const durationSec = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000);
-        
+        // Guardar solo la fecha del día
+        const startedAtDay = new Date(startedAt.getFullYear(), startedAt.getMonth(), startedAt.getDate());
         if (durationSec > 0) {
-            const lastContraction = contractions.length > 0 ? contractions[0] : null;
-            const intervalSec = lastContraction ? Math.round((startedAt.getTime() - lastContraction.startedAt.toMillis()) / 1000) : null;
-    
-            addContraction({
-                startedAt: Timestamp.fromDate(startedAt),
-                endedAt: Timestamp.fromDate(endedAt),
-                durationSec,
-                intervalSec
-            });
+          const lastContraction = contractions.length > 0 ? contractions[0] : null;
+          const intervalSec = lastContraction ? Math.round((startedAt.getTime() - lastContraction.startedAt.toMillis()) / 1000) : null;
+          addContraction({
+            startedAt: Timestamp.fromDate(startedAtDay),
+            endedAt: Timestamp.fromDate(endedAt),
+            durationSec,
+            intervalSec
+          });
         }
 
         startTimeRef.current = null;

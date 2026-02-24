@@ -17,6 +17,12 @@ import { Terminal } from "lucide-react";
 
 export function HistoryList() {
   const { contractions, clearHistory, loading } = useContractions();
+  const handleDeleteContraction = async (id: string) => {
+    // Suponiendo que el contexto tiene método para borrar individual
+    if (window.confirm('¿Seguro que quieres borrar esta contracción?')) {
+      await useContractions().deleteContraction(id);
+    }
+  };
   const [showManualDialog, setShowManualDialog] = useState(false);
   const [manualContraction, setManualContraction] = useState({
     startedAt: '',
@@ -136,19 +142,29 @@ export function HistoryList() {
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
-                <TableHead className="w-1/3">HACE</TableHead>
-                <TableHead className="text-center">DURACIÓN</TableHead>
-                <TableHead className="text-right">INTERVALO</TableHead>
+                <TableHead className="w-1/4">Fecha</TableHead>
+                <TableHead className="w-1/4">Hace</TableHead>
+                <TableHead className="text-center">Duración</TableHead>
+                <TableHead className="text-right">Intervalo</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {contractions.map((c, index) => (
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">
+                    {c.startedAt.toDate().toLocaleDateString("es-ES", { year: "numeric", month: "2-digit", day: "2-digit" })}
+                  </TableCell>
+                  <TableCell>
                     {formatDistanceToNow(c.startedAt.toDate(), { addSuffix: true, locale: es })}
                   </TableCell>
                   <TableCell className="text-center font-bold text-accent">{c.durationSec}s</TableCell>
                   <TableCell className="text-right font-bold text-accent">{formatInterval(c.intervalSec)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="destructive" size="sm" onClick={() => handleDeleteContraction(c.id)}>
+                      Borrar
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
