@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { appendContraction, getContractions } from "@/lib/googleSheets";
-import { Timestamp } from "firebase/firestore";
+import { supabase } from "@/lib/supabaseClient";
+import { v4 as uuidv4 } from "uuid";
 import type { Contraction, StoredContraction } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -38,85 +38,93 @@ export function ContractionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setLoading(true);
-    getContractions()
-      .then((rows) => {
-        // Asume que cada fila es [startedAt, endedAt, durationSec, intervalSec]
-        const newContractions: Contraction[] = rows.slice(1).map((row: any[], idx: number) => ({
-          id: String(idx),
-          startedAt: Timestamp.fromDate(new Date(row[0])),
-          endedAt: Timestamp.fromDate(new Date(row[1])),
-          durationSec: Number(row[2]),
-          intervalSec: row[3] !== undefined && row[3] !== null && row[3] !== '' ? Number(row[3]) : null,
-        }));
-        setContractions(newContractions);
-      })
-      .catch((e) => {
-        toast({
-          variant: "destructive",
-          title: "Error de conexión",
-          description: "No se pudo cargar el historial desde Google Sheets.",
-        });
+    supabase
+      .from('contracciones')
+      .select('*')
+      .order('started_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          toast({
+            variant: "destructive",
+            title: "Error de conexión",
+            description: "No se pudo cargar el historial desde Supabase.",
+          });
+          setContractions([]);
+        } else {
+          const newContractions: Contraction[] = (data || []).map((row: any) => ({
+            id: row.id,
+            startedAt: new Date(row.started_at),
+            endedAt: row.started_at ? new Date(row.started_at) : null,
+            durationSec: row.duration_sec,
+            intervalSec: row.interval_sec ?? null,
+          }));
+          setContractions(newContractions);
+        }
       })
       .finally(() => setLoading(false));
   }, [toast]);
 
   const addContraction = useCallback(async (contraction: StoredContraction) => {
     try {
-      await appendContraction([
-        contraction.startedAt.toDate().toISOString(),
-        contraction.endedAt.toDate().toISOString(),
-        contraction.durationSec,
-        contraction.intervalSec ?? '',
+      const { error } = await supabase.from('contracciones').insert([
+        {
+          id: uuidv4(),
+          started_at: contraction.startedAt.toISOString(),
+          duration_sec: contraction.durationSec,
+          interval_sec: contraction.intervalSec ?? null,
+        }
       ]);
+      if (error) throw error;
       // Refresca historial
-      getContractions()
-        .then((rows) => {
-          const newContractions: Contraction[] = rows.slice(1).map((row: any[], idx: number) => ({
-            id: String(idx),
-            startedAt: Timestamp.fromDate(new Date(row[0])),
-            endedAt: Timestamp.fromDate(new Date(row[1])),
-            durationSec: Number(row[2]),
-            intervalSec: row[3] !== undefined && row[3] !== null && row[3] !== '' ? Number(row[3]) : null,
-          }));
-          setContractions(newContractions);
-        });
+      const { data, error: fetchError } = await supabase
+        .from('contracciones')
+        .select('*')
+        .order('started_at', { ascending: false });
+      if (fetchError) throw fetchError;
+      const newContractions: Contraction[] = (data || []).map((row: any) => ({
+        id: row.id,
+        startedAt: new Date(row.started_at),
+        endedAt: row.started_at ? new Date(row.started_at) : null,
+        durationSec: row.duration_sec,
+        intervalSec: row.interval_sec ?? null,
+      }));
+      setContractions(newContractions);
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error de conexión",
-        description: "No se pudo guardar la contracción en Google Sheets.",
+        description: "No se pudo guardar la contracción en Supabase.",
       });
     }
   }, [toast]);
 
   const clearHistory = useCallback(async () => {
-    toast({
-      variant: "destructive",
-      title: "No implementado",
-      description: "Borrar historial no está disponible en Google Sheets.",
-    });
-    setContractions([]);
-  }, [toast]);
-
-  const deleteContraction = useCallback(async (id: string) => {
     try {
-      setContractions(prev => prev.filter(c => c.id !== id));
-      // Elimina en Google Sheets: recarga todo menos la fila
-      const rows = await getContractions();
-      const idx = contractions.findIndex(c => c.id === id);
-      if (idx >= 0) {
-        const newRows = rows.filter((_, i) => i !== idx + 1); // +1 por encabezado
-        // Aquí deberías implementar una función setAllContractions(newRows)
-        // Por ahora solo actualiza localmente
-      }
+      const { error } = await supabase.from('contracciones').delete().neq('id', '');
+      if (error) throw error;
+      setContractions([]);
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error al borrar",
-        description: "No se pudo borrar la contracción en Google Sheets.",
+        description: "No se pudo borrar el historial en Supabase.",
       });
     }
-  }, [contractions, toast]);
+  }, [toast]);
+
+  const deleteContraction = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase.from('contracciones').delete().eq('id', id);
+      if (error) throw error;
+      setContractions(prev => prev.filter(c => c.id !== id));
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error al borrar",
+        description: "No se pudo borrar la contracción en Supabase.",
+      });
+    }
+  }, [toast]);
 
   const lastHourStats = React.useMemo(() => {
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
