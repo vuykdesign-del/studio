@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+# Permitir credenciales de Google Sheets
+!src/credentials.json
 
 # debug
 npm-debug.log*
